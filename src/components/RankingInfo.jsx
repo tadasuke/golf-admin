@@ -178,18 +178,20 @@ function RankingInfo() {
             {courses.length === 0 ? (
               <option value="" disabled>コースがありません</option>
             ) : (
-              courses.map((course) => {
-                const facilityName = course.facility_master?.facility_name || ''
-                const courseName = course.course_name || ''
-                const displayText = facilityName && courseName 
-                  ? `${facilityName} ${courseName}`
-                  : courseName || `コース ${course.course_id}`
-                return (
-                  <option key={course.course_id} value={course.course_id}>
-                    {displayText}
-                  </option>
-                )
-              })
+              courses
+                .filter((course) => course.course_type !== 0)
+                .map((course) => {
+                  const facilityName = course.facility_master?.facility_name || ''
+                  const courseName = course.course_name || ''
+                  const displayText = facilityName && courseName 
+                    ? `${facilityName} ${courseName}`
+                    : courseName || `コース ${course.course_id}`
+                  return (
+                    <option key={course.course_id} value={course.course_id}>
+                      {displayText}
+                    </option>
+                  )
+                })
             )}
           </select>
         )}
