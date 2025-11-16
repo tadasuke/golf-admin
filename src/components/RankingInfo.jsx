@@ -157,7 +157,7 @@ function RankingInfo() {
     <div>
       <div className="mb-6">
         <h2 className="text-3xl font-bold mb-2">ランキング情報表示</h2>
-        <p className="text-gray-400">ゴルフプレイヤーのランキングを確認できます</p>
+        <p className="text-gray-400">コースごとのランキングデータ表示</p>
       </div>
 
       {/* コース選択 */}
