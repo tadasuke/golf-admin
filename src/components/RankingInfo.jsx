@@ -1,102 +1,129 @@
 import { useState, useEffect } from 'react'
 
-// モックデータ
-const mockRanking = [
-  {
-    rank: 1,
-    userId: 4,
-    name: '山田次郎',
-    bestScore: 70,
-    averageScore: 78,
-    totalRounds: 156,
-    handicap: 8,
-    recentScore: 72,
-    trend: 'up'
-  },
-  {
-    rank: 2,
-    userId: 2,
-    name: '佐藤花子',
-    bestScore: 76,
-    averageScore: 85,
-    totalRounds: 78,
-    handicap: 12,
-    recentScore: 78,
-    trend: 'stable'
-  },
-  {
-    rank: 3,
-    userId: 1,
-    name: '田中太郎',
-    bestScore: 82,
-    averageScore: 92,
-    totalRounds: 45,
-    handicap: 18,
-    recentScore: 85,
-    trend: 'down'
-  },
-  {
-    rank: 4,
-    userId: 5,
-    name: '高橋三郎',
-    bestScore: 80,
-    averageScore: 88,
-    totalRounds: 67,
-    handicap: 15,
-    recentScore: 86,
-    trend: 'up'
-  },
-  {
-    rank: 5,
-    userId: 3,
-    name: '鈴木一郎',
-    bestScore: 95,
-    averageScore: 105,
-    totalRounds: 23,
-    handicap: 24,
-    recentScore: 98,
-    trend: 'stable'
+// APIベースURLをドメインに応じて決定
+const getApiBaseUrl = () => {
+  const hostname = window.location.hostname
+  
+  if (hostname === 'admin.s.marty-golf.co') {
+    return 'https://api.s.marty-golf.co'
+  } else if (hostname === 'test-admin.s.marty-golf.co') {
+    return 'https://5lajrqrx7xdj5brkfzsinr7s640wubzo.lambda-url.ap-northeast-1.on.aws'
+  } else {
+    // 環境変数が設定されている場合はそれを使用、それ以外はlocalhost:8080
+    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
   }
-]
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 function RankingInfo() {
   const [rankings, setRankings] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState('bestScore') // bestScore, averageScore, totalRounds
+  const [loading, setLoading] = useState(false)
+  const [courses, setCourses] = useState([])
+  const [caddieMaster, setCaddieMaster] = useState([])
+  const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [loadingCourses, setLoadingCourses] = useState(true)
 
+  // マスターデータ取得
   useEffect(() => {
-    // モックAPI呼び出し（実際のAPIに置き換え可能）
-    const fetchRankings = async () => {
-      setLoading(true)
-      // 実際のAPI呼び出し: const response = await fetch('/api/rankings')
-      // const data = await response.json()
-      
-      // モックデータを返す（1秒の遅延でAPI呼び出しをシミュレート）
-      setTimeout(() => {
-        let sortedRankings = [...mockRanking]
+    let isMounted = true
+    const abortController = new AbortController()
+
+    const fetchMasterData = async () => {
+      try {
+        setLoadingCourses(true)
+        const response = await fetch(`${API_BASE_URL}/api/v1/admin/master`, {
+          signal: abortController.signal
+        })
+        if (!response.ok) {
+          throw new Error('マスターデータの取得に失敗しました')
+        }
+        const data = await response.json()
         
-        // ソート処理
-        if (sortBy === 'bestScore') {
-          sortedRankings.sort((a, b) => a.bestScore - b.bestScore)
-        } else if (sortBy === 'averageScore') {
-          sortedRankings.sort((a, b) => a.averageScore - b.averageScore)
-        } else if (sortBy === 'totalRounds') {
-          sortedRankings.sort((a, b) => b.totalRounds - a.totalRounds)
+        // コンポーネントがマウントされている場合のみ状態を更新
+        if (isMounted) {
+          // コースデータを設定
+          if (data.course_master && Array.isArray(data.course_master)) {
+            setCourses(data.course_master)
+          }
+          // キャディマスターデータを設定
+          if (data.caddie_master && Array.isArray(data.caddie_master)) {
+            setCaddieMaster(data.caddie_master)
+          }
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError' && isMounted) {
+          console.error('マスターデータ取得エラー:', error)
+          // エラー時は空の配列を設定
+          setCourses([])
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingCourses(false)
+        }
+      }
+    }
+
+    fetchMasterData()
+
+    // クリーンアップ関数
+    return () => {
+      isMounted = false
+      abortController.abort()
+    }
+  }, [])
+
+  // ランキングデータ取得
+  useEffect(() => {
+    if (!selectedCourseId) {
+      setRankings([])
+      setLoading(false)
+      return
+    }
+
+    const fetchRankings = async () => {
+      try {
+        setLoading(true)
+        // ランキングAPI呼び出し（コースIDをパスパラメータとして渡す）
+        const response = await fetch(`${API_BASE_URL}/api/v1/admin/ranking/${selectedCourseId}`)
+        
+        if (!response.ok) {
+          throw new Error('ランキングデータの取得に失敗しました')
         }
         
-        // ランクを更新
+        const data = await response.json()
+        let rankingsData = []
+        
+        // APIレスポンスは配列形式
+        if (Array.isArray(data)) {
+          rankingsData = data
+        } else if (data.rankings && Array.isArray(data.rankings)) {
+          rankingsData = data.rankings
+        } else if (data.data && Array.isArray(data.data)) {
+          rankingsData = data.data
+        }
+        
+        // スコアでソート（小さい順、既にrankが含まれているが念のため）
+        let sortedRankings = [...rankingsData]
+        sortedRankings.sort((a, b) => (a.score || 0) - (b.score || 0))
+        
+        // ランクを更新（APIから取得したrankを使用、ソート順に基づいて再計算）
         sortedRankings = sortedRankings.map((r, index) => ({
           ...r,
           rank: index + 1
         }))
         
         setRankings(sortedRankings)
+      } catch (error) {
+        console.error('ランキング取得エラー:', error)
+        setRankings([])
+      } finally {
         setLoading(false)
-      }, 500)
+      }
     }
 
     fetchRankings()
-  }, [sortBy])
+  }, [selectedCourseId])
 
   const getMedalEmoji = (rank) => {
     if (rank === 1) return '🥇'
@@ -105,10 +132,25 @@ function RankingInfo() {
     return null
   }
 
-  const getTrendIcon = (trend) => {
-    if (trend === 'up') return '📈'
-    if (trend === 'down') return '📉'
-    return '➡️'
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-'
+    try {
+      const date = new Date(dateString)
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      return `${year}/${month}/${day} ${hours}:${minutes}`
+    } catch (error) {
+      return dateString
+    }
+  }
+
+  const getCaddieName = (caddieId) => {
+    if (!caddieId) return '-'
+    const caddie = caddieMaster.find(c => c.caddie_id === caddieId)
+    return caddie?.caddie_name || caddieId
   }
 
   return (
@@ -118,44 +160,51 @@ function RankingInfo() {
         <p className="text-gray-400">ゴルフプレイヤーのランキングを確認できます</p>
       </div>
 
-      {/* ソートオプション */}
-      <div className="mb-6 flex gap-4">
-        <button
-          onClick={() => setSortBy('bestScore')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
-            sortBy === 'bestScore'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
-          }`}
-        >
-          ベストスコア順
-        </button>
-        <button
-          onClick={() => setSortBy('averageScore')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
-            sortBy === 'averageScore'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
-          }`}
-        >
-          平均スコア順
-        </button>
-        <button
-          onClick={() => setSortBy('totalRounds')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
-            sortBy === 'totalRounds'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
-          }`}
-        >
-          総ラウンド数順
-        </button>
+      {/* コース選択 */}
+      <div className="mb-6">
+        <label htmlFor="course-select" className="block text-sm font-medium text-gray-300 mb-2">
+          コース選択
+        </label>
+        {loadingCourses ? (
+          <div className="text-gray-400">コースデータを読み込み中...</div>
+        ) : (
+          <select
+            id="course-select"
+            value={selectedCourseId}
+            onChange={(e) => setSelectedCourseId(e.target.value)}
+            className="w-full max-w-md px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="">---</option>
+            {courses.length === 0 ? (
+              <option value="" disabled>コースがありません</option>
+            ) : (
+              courses.map((course) => {
+                const facilityName = course.facility_master?.facility_name || ''
+                const courseName = course.course_name || ''
+                const displayText = facilityName && courseName 
+                  ? `${facilityName} ${courseName}`
+                  : courseName || `コース ${course.course_id}`
+                return (
+                  <option key={course.course_id} value={course.course_id}>
+                    {displayText}
+                  </option>
+                )
+              })
+            )}
+          </select>
+        )}
       </div>
 
       {/* ランキングテーブル */}
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <div className="text-gray-400">読み込み中...</div>
+        </div>
+      ) : rankings.length === 0 ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-400">
+            {selectedCourseId ? 'ランキングデータがありません' : 'コースを選択してください'}
+          </div>
         </div>
       ) : (
         <div className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
@@ -170,29 +219,23 @@ function RankingInfo() {
                     プレイヤー
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    ハンディキャップ
+                    スコア
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    ベストスコア
+                    キャディ
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    平均スコア
+                    ホールアウト
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    直近スコア
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    総ラウンド数
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    トレンド
+                    Play ID
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {rankings.map((player) => (
+                {rankings.map((player, index) => (
                   <tr
-                    key={player.userId}
+                    key={player.app_user_id || index}
                     className={`hover:bg-gray-750 ${
                       player.rank <= 3 ? 'bg-gray-750' : ''
                     }`}
@@ -218,25 +261,19 @@ function RankingInfo() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                      {player.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {player.handicap}
+                      {player.marty_user_id || player.app_user_id || '不明'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-400 font-semibold">
-                      {player.bestScore}
+                      {player.score ?? '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {player.averageScore}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-400">
-                      {player.recentScore}
+                      {getCaddieName(player.data?.caddie_id)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {player.totalRounds}
+                      {formatDateTime(player.data?.last_play_at)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className="text-xl">{getTrendIcon(player.trend)}</span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      {player.data?.play_id || '-'}
                     </td>
                   </tr>
                 ))}
@@ -245,46 +282,6 @@ function RankingInfo() {
           </div>
         </div>
       )}
-
-      {/* トップ3のハイライト */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        {rankings.slice(0, 3).map((player) => (
-          <div
-            key={player.userId}
-            className={`p-6 rounded-lg border ${
-              player.rank === 1
-                ? 'bg-gradient-to-br from-yellow-900/30 to-yellow-800/10 border-yellow-700'
-                : player.rank === 2
-                ? 'bg-gradient-to-br from-gray-700/30 to-gray-600/10 border-gray-600'
-                : 'bg-gradient-to-br from-amber-900/30 to-amber-800/10 border-amber-700'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center">
-                <span className="text-3xl mr-3">{getMedalEmoji(player.rank)}</span>
-                <div>
-                  <div className="text-lg font-bold text-white">{player.name}</div>
-                  <div className="text-sm text-gray-400">{player.rank}位</div>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">ベストスコア</span>
-                <span className="text-green-400 font-semibold">{player.bestScore}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">平均スコア</span>
-                <span className="text-gray-300">{player.averageScore}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">総ラウンド数</span>
-                <span className="text-gray-300">{player.totalRounds}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
