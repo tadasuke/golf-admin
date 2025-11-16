@@ -218,19 +218,22 @@ function RankingInfo() {
                     順位
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    プレイヤー
+                    ニックネーム
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    ウォレットアドレス
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     スコア
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    ストローク
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     キャディ
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     ホールアウト
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Play ID
                   </th>
                 </tr>
               </thead>
@@ -263,19 +266,22 @@ function RankingInfo() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                      {player.marty_user_id || player.app_user_id || '不明'}
+                      {player.basic_data?.nick_name || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                      {player.basic_data?.wallet_address || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-400 font-semibold">
                       {player.score ?? '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-400 font-semibold">
+                      {player.data?.total_stroke_count ?? '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                       {getCaddieName(player.data?.caddie_id)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                       {formatDateTime(player.data?.last_play_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {player.data?.play_id || '-'}
                     </td>
                   </tr>
                 ))}
