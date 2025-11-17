@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname
   
-  if (hostname === 'admin.s.marty-golf.co') {
+  if (hostname === 'management.s.marty-golf.co') {
     return 'https://api.s.marty-golf.co'
   } else if (hostname === 'test-admin.s.marty-golf.co') {
     return 'https://5lajrqrx7xdj5brkfzsinr7s640wubzo.lambda-url.ap-northeast-1.on.aws'
