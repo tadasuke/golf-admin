@@ -1,6 +1,21 @@
+import { useState } from 'react'
+import Dashboard from './components/Dashboard'
 import RankingInfo from './components/RankingInfo'
 
 function App() {
+  const [currentPage, setCurrentPage] = useState('dashboard')
+
+  const renderContent = () => {
+    switch (currentPage) {
+      case 'dashboard':
+        return <Dashboard />
+      case 'ranking':
+        return <RankingInfo />
+      default:
+        return <Dashboard />
+    }
+  }
+
   return (
     <div className="dark min-h-screen bg-gray-900 text-white">
       <div className="flex h-screen">
@@ -12,9 +27,28 @@ function App() {
           <nav className="flex-1 p-4">
             <ul className="space-y-2">
               <li>
-                <div className="w-full text-left px-4 py-3 rounded-lg bg-green-600 text-white">
+                <button
+                  onClick={() => setCurrentPage('dashboard')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                    currentPage === 'dashboard'
+                      ? 'bg-green-600 text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  📊 ダッシュボード
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => setCurrentPage('ranking')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                    currentPage === 'ranking'
+                      ? 'bg-green-600 text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
                   🏆 ランキング情報表示
-                </div>
+                </button>
               </li>
             </ul>
           </nav>
@@ -23,7 +57,7 @@ function App() {
         {/* メインコンテンツ */}
         <main className="flex-1 overflow-auto bg-gray-900">
           <div className="p-8">
-            <RankingInfo />
+            {renderContent()}
           </div>
         </main>
       </div>
